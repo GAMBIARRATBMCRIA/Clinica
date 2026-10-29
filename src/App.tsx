@@ -37,6 +37,8 @@ const Icons = {
   pencil: "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7 M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
   chevronL: "M15 18l-6-6 6-6",
   chevronR: "M9 18l6-6-6-6",
+  menu: "M3 12h18M3 6h18M3 18h18",
+  eyeOff: "M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24 M1 1l22 22",
 };
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
@@ -61,36 +63,28 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'space-between',
-          flexDirection: collapsed ? 'column' : 'row',
-          padding: collapsed ? '12px 6px' : '10px 10px 10px 12px',
-          gap: collapsed ? 8 : 4,
+          justifyContent: 'space-between',
+          padding: '10px 10px 10px 14px',
+          gap: 8,
         }}
       >
-        {!collapsed ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, overflow: 'hidden' }}>
-            <img
-              src="/logo.png"
-              alt="Harmonia Fisioterapia"
-              style={{ width: 'auto', maxHeight: 85, maxWidth: 130, objectFit: 'contain' }}
-            />
-          </div>
-        ) : (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, overflow: 'hidden' }}>
           <img
             src="/logo.png"
             alt="Harmonia Fisioterapia"
-            style={{ width: 34, height: 34, objectFit: 'contain' }}
+            style={{ width: 'auto', maxHeight: 85, maxWidth: 130, objectFit: 'contain' }}
           />
-        )}
+        </div>
 
         <button
           type="button"
           className="sidebar-collapse-btn"
           onClick={onToggle}
           id="toggle-sidebar-btn"
-          title={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+          title="Ocultar menu lateral"
+          aria-label="Ocultar menu lateral"
         >
-          <Icon d={collapsed ? Icons.chevronR : Icons.chevronL} size={14} />
+          <Icon d={Icons.chevronL} size={15} />
         </button>
       </div>
 
@@ -99,10 +93,9 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
           <div
             key={item.label}
             className={`nav-item${item.active ? ' nav-item--active' : ''}`}
-            title={collapsed ? item.label : undefined}
           >
             <Icon d={item.icon} size={18} />
-            {!collapsed && <span>{item.label}</span>}
+            <span>{item.label}</span>
           </div>
         ))}
       </nav>
@@ -110,18 +103,14 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
       <div className="sidebar-footer">
         <div className="user-info">
           <div className="user-avatar" title="Gabriela Souza · Gerente">GS</div>
-          {!collapsed && (
-            <div className="user-text">
-              <div className="name">Gabriela Souza</div>
-              <div className="role">Gerente</div>
-            </div>
-          )}
+          <div className="user-text">
+            <div className="name">Gabriela Souza</div>
+            <div className="role">Gerente</div>
+          </div>
         </div>
-        {!collapsed && (
-          <button className="btn-icon" title="Sair">
-            <Icon d={Icons.logout} size={16} />
-          </button>
-        )}
+        <button className="btn-icon" title="Sair">
+          <Icon d={Icons.logout} size={16} />
+        </button>
       </div>
     </aside>
   );
@@ -224,16 +213,28 @@ function EditSessionModal({
   const [date, setDate] = useState(session.date);
   const [competenceDate, setCompetenceDate] = useState(session.competenceDate || '');
   const [valuePerSession, setValuePerSession] = useState(session.valuePerSession);
+  const [glosa, setGlosa] = useState<'nao_glosada' | 'glosada'>(session.glosa);
+
+  const canChangeGlosa = session.financialStatus === 'disponivel';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(session.id, {
+    const updates: Partial<Session> = {
       patient,
       guia,
       date,
       competenceDate: competenceDate || undefined,
       valuePerSession: Number(valuePerSession) || session.valuePerSession,
-    });
+    };
+    if (canChangeGlosa && glosa !== session.glosa) {
+      updates.glosa = glosa;
+      if (glosa === 'nao_glosada') {
+        updates.regularizationDate = new Date().toISOString().slice(0, 10);
+      } else {
+        updates.glosaDate = new Date().toISOString().slice(0, 10);
+      }
+    }
+    onSave(session.id, updates);
     onClose();
   };
 
@@ -254,6 +255,65 @@ function EditSessionModal({
       }
     >
       <form id="edit-session-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* Controle da Situação da Glosa */}
+        <div style={{
+          background: glosa === 'glosada' ? 'var(--red-50, #fef2f2)' : 'var(--green-50, #f0fdf4)',
+          border: `1px solid ${glosa === 'glosada' ? 'var(--red-200, #fecaca)' : 'var(--green-200, #bbf7d0)'}`,
+          padding: '12px 14px',
+          borderRadius: 'var(--radius)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '.78rem', fontWeight: 700, color: glosa === 'glosada' ? '#991b1b' : '#166534' }}>
+              Situação da Glosa
+            </span>
+            <span className={`badge ${glosa === 'glosada' ? 'badge-red' : 'badge-green'}`}>
+              {glosa === 'glosada' ? 'Glosada (Não contabilizada)' : 'Não glosada (Elegível)'}
+            </span>
+          </div>
+
+          {canChangeGlosa ? (
+            <div style={{ display: 'flex', gap: 16, marginTop: 2, flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '.8rem', cursor: 'pointer', fontWeight: glosa === 'nao_glosada' ? 600 : 400, color: 'var(--slate-800)' }}>
+                <input
+                  type="radio"
+                  name="modal-glosa"
+                  checked={glosa === 'nao_glosada'}
+                  onChange={() => setGlosa('nao_glosada')}
+                />
+                <span>Não glosada (Regularizada / Entra no cálculo)</span>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '.8rem', cursor: 'pointer', fontWeight: glosa === 'glosada' ? 600 : 400, color: 'var(--slate-800)' }}>
+                <input
+                  type="radio"
+                  name="modal-glosa"
+                  checked={glosa === 'glosada'}
+                  onChange={() => setGlosa('glosada')}
+                />
+                <span>Glosada (Suspensa do fechamento)</span>
+              </label>
+            </div>
+          ) : (
+            <div style={{ fontSize: '.72rem', color: 'var(--slate-500)' }}>
+              Sessão {session.financialStatus === 'reservada' ? 'reservada em fechamento' : 'já paga'} — situação financeira protegida.
+            </div>
+          )}
+
+          {session.glosa === 'glosada' && glosa === 'nao_glosada' && (
+            <div style={{ fontSize: '.74rem', color: '#166534', background: '#dcfce7', padding: '6px 10px', borderRadius: 4, fontWeight: 500 }}>
+              ✓ Ao salvar, a glosa será retirada e a sessão entrará imediatamente na lista de sessões elegíveis da prévia.
+            </div>
+          )}
+          {session.glosa === 'nao_glosada' && glosa === 'glosada' && (
+            <div style={{ fontSize: '.74rem', color: '#991b1b', background: '#fee2e2', padding: '6px 10px', borderRadius: 4, fontWeight: 500 }}>
+              ⚠️ Ao salvar como glosada, a sessão sairá do fechamento e não será contabilizada.
+            </div>
+          )}
+        </div>
+
         <div className="filter-group">
           <label className="filter-label">Paciente</label>
           <input
@@ -412,12 +472,109 @@ function ActionMenu({
   );
 }
 
+// ─── Filter Config ─────────────────────────────────────────────────────────────
+
+type FilterKey = 'periodo' | 'fisio' | 'plano' | 'glosa' | 'financial';
+
+const FILTER_LABELS: Record<FilterKey, string> = {
+  periodo: 'Período da sessão',
+  fisio: 'Fisioterapeuta',
+  plano: 'Plano de saúde',
+  glosa: 'Situação da glosa',
+  financial: 'Situação financeira',
+};
+
+const ALL_FILTER_KEYS: FilterKey[] = ['periodo', 'fisio', 'plano', 'glosa', 'financial'];
+
+function FilterConfigButton({
+  visibleFilters,
+  onChange,
+}: {
+  visibleFilters: Set<FilterKey>;
+  onChange: (v: Set<FilterKey>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const toggle = (key: FilterKey) => {
+    const next = new Set(visibleFilters);
+    if (next.has(key)) {
+      // keep at least one filter visible
+      if (next.size > 1) next.delete(key);
+    } else {
+      next.add(key);
+    }
+    onChange(next);
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative', alignSelf: 'flex-end' }}>
+      <button
+        type="button"
+        id="filter-config-btn"
+        className="btn btn-ghost btn-sm filter-config-btn"
+        onClick={() => setOpen(o => !o)}
+        title="Configurar filtros visíveis"
+        aria-expanded={open}
+        aria-haspopup="true"
+      >
+        <Icon d={Icons.config} size={14} />
+        <span>Filtros</span>
+        <Icon d={open ? Icons.chevronL : Icons.chevronR} size={12} style={{ transform: open ? 'rotate(90deg)' : 'rotate(270deg)' } as React.CSSProperties} />
+      </button>
+
+      {open && (
+        <div className="filter-config-dropdown" id="filter-config-dropdown">
+          <div className="filter-config-header">
+            <Icon d={Icons.config} size={13} />
+            <span>Filtros visíveis</span>
+          </div>
+          <div className="filter-config-list">
+            {ALL_FILTER_KEYS.map(key => (
+              <label key={key} className="filter-config-item">
+                <input
+                  type="checkbox"
+                  className="filter-config-checkbox"
+                  checked={visibleFilters.has(key)}
+                  onChange={() => toggle(key)}
+                  id={`filter-cfg-${key}`}
+                />
+                <span className="filter-config-label">{FILTER_LABELS[key]}</span>
+              </label>
+            ))}
+          </div>
+          <div className="filter-config-footer">
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ fontSize: '0.72rem' }}
+              onClick={() => onChange(new Set(ALL_FILTER_KEYS))}
+            >
+              Mostrar todos
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Filters Bar ─────────────────────────────────────────────────────────────
 
-function FiltersBar({ filters, onChange, sessions }: {
+function FiltersBar({ filters, onChange, sessions, visibleFilters, onVisibleFiltersChange }: {
   filters: FilterState;
   onChange: (f: FilterState) => void;
   sessions?: Session[];
+  visibleFilters: Set<FilterKey>;
+  onVisibleFiltersChange: (v: Set<FilterKey>) => void;
 }) {
   const set = (key: keyof FilterState, value: string) =>
     onChange({ ...filters, [key]: value });
@@ -439,158 +596,239 @@ function FiltersBar({ filters, onChange, sessions }: {
 
   return (
     <div className="filters-bar">
-      <div className="filter-group">
-        <label className="filter-label">Período da sessão</label>
-        <div className="filter-date-range">
-          <input
-            id="filter-date-from"
-            type="date"
-            className="filter-input"
-            value={filters.dateFrom}
-            onChange={e => set('dateFrom', e.target.value)}
-          />
-          <span>—</span>
-          <input
-            id="filter-date-to"
-            type="date"
-            className="filter-input"
-            value={filters.dateTo}
-            onChange={e => set('dateTo', e.target.value)}
-          />
+      {visibleFilters.has('periodo') && (
+        <div className="filter-group">
+          <label className="filter-label">Período da sessão</label>
+          <div className="filter-date-range">
+            <input
+              id="filter-date-from"
+              type="date"
+              className="filter-input"
+              value={filters.dateFrom}
+              onChange={e => set('dateFrom', e.target.value)}
+            />
+            <span>—</span>
+            <input
+              id="filter-date-to"
+              type="date"
+              className="filter-input"
+              value={filters.dateTo}
+              onChange={e => set('dateTo', e.target.value)}
+            />
+          </div>
         </div>
-      </div>
-
-      <div className="filter-group">
-        <label className="filter-label">Fisioterapeuta</label>
-        <select
-          id="filter-fisio"
-          className="filter-select"
-          value={filters.fisioId}
-          onChange={e => set('fisioId', e.target.value)}
-          style={{ minWidth: 160 }}
-        >
-          <option value="">Todos</option>
-          {FISIOTERAPEUTAS.map(f => (
-            <option key={f.id} value={f.id}>{f.name}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="filter-group">
-        <label className="filter-label">Plano de saúde</label>
-        <select
-          id="filter-plano"
-          className="filter-select"
-          value={filters.plano}
-          onChange={e => set('plano', e.target.value)}
-          style={{ minWidth: 150 }}
-        >
-          <option value="">Todos os planos</option>
-          {availablePlans.map(p => (
-            <option key={p} value={p}>{p}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="filter-group">
-        <label className="filter-label">Situação da glosa</label>
-        <select
-          id="filter-glosa"
-          className="filter-select"
-          value={filters.glosa}
-          onChange={e => set('glosa', e.target.value as FilterState['glosa'])}
-          style={{ minWidth: 150 }}
-        >
-          <option value="all">Todas</option>
-          <option value="nao_glosada">Não glosadas</option>
-          <option value="glosada">Glosadas</option>
-        </select>
-      </div>
-
-      <div className="filter-group">
-        <label className="filter-label">Situação financeira</label>
-        <select
-          id="filter-financial"
-          className="filter-select"
-          value={filters.financial}
-          onChange={e => set('financial', e.target.value as FilterState['financial'])}
-          style={{ minWidth: 180 }}
-        >
-          <option value="all">Todas</option>
-          <option value="disponivel">Disponível para apuração</option>
-          <option value="reservada">Reservada (fechamento pendente)</option>
-          <option value="paga">Paga</option>
-        </select>
-      </div>
-
-      {hasActiveFilters && (
-        <button
-          className="btn btn-ghost btn-sm"
-          style={{ height: 36, alignSelf: 'flex-end', marginLeft: 'auto' }}
-          onClick={() => onChange({
-            dateFrom: '2025-01-01',
-            dateTo: '2027-12-31',
-            fisioId: '',
-            plano: '',
-            glosa: 'all',
-            financial: 'all',
-          })}
-          title="Restaurar filtros padrão"
-        >
-          <Icon d={Icons.refresh} size={13} /> Limpar filtros
-        </button>
       )}
+
+      {visibleFilters.has('fisio') && (
+        <div className="filter-group">
+          <label className="filter-label">Fisioterapeuta</label>
+          <select
+            id="filter-fisio"
+            className="filter-select"
+            value={filters.fisioId}
+            onChange={e => set('fisioId', e.target.value)}
+            style={{ minWidth: 160 }}
+          >
+            <option value="">Todos</option>
+            {FISIOTERAPEUTAS.map(f => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {visibleFilters.has('plano') && (
+        <div className="filter-group">
+          <label className="filter-label">Plano de saúde</label>
+          <select
+            id="filter-plano"
+            className="filter-select"
+            value={filters.plano}
+            onChange={e => set('plano', e.target.value)}
+            style={{ minWidth: 150 }}
+          >
+            <option value="">Todos os planos</option>
+            {availablePlans.map(p => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {visibleFilters.has('glosa') && (
+        <div className="filter-group">
+          <label className="filter-label">Situação da glosa</label>
+          <select
+            id="filter-glosa"
+            className="filter-select"
+            value={filters.glosa}
+            onChange={e => set('glosa', e.target.value as FilterState['glosa'])}
+            style={{ minWidth: 150 }}
+          >
+            <option value="all">Todas</option>
+            <option value="nao_glosada">Não glosadas</option>
+            <option value="glosada">Glosadas</option>
+          </select>
+        </div>
+      )}
+
+      {visibleFilters.has('financial') && (
+        <div className="filter-group">
+          <label className="filter-label">Situação financeira</label>
+          <select
+            id="filter-financial"
+            className="filter-select"
+            value={filters.financial}
+            onChange={e => set('financial', e.target.value as FilterState['financial'])}
+            style={{ minWidth: 180 }}
+          >
+            <option value="all">Todas</option>
+            <option value="disponivel">Disponível para apuração</option>
+            <option value="reservada">Reservada (fechamento pendente)</option>
+            <option value="paga">Paga</option>
+          </select>
+        </div>
+      )}
+
+      <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+        {hasActiveFilters && (
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ height: 32 }}
+            onClick={() => onChange({
+              dateFrom: '2025-01-01',
+              dateTo: '2027-12-31',
+              fisioId: '',
+              plano: '',
+              glosa: 'all',
+              financial: 'all',
+            })}
+            title="Restaurar filtros padrão"
+          >
+            <Icon d={Icons.refresh} size={13} /> Limpar filtros
+          </button>
+        )}
+        <FilterConfigButton
+          visibleFilters={visibleFilters}
+          onChange={onVisibleFiltersChange}
+        />
+      </div>
     </div>
   );
 }
 
 // ─── Indicator Cards ──────────────────────────────────────────────────────────
 
-function IndicatorCards({ indicators }: {
+function IndicatorCards({
+  indicators,
+  visible,
+  onToggle,
+}: {
   indicators: {
     total: number; eligible: number; glossed: number; gross: number; net: number;
   };
+  visible: boolean;
+  onToggle: () => void;
 }) {
+  if (!visible) {
+    return (
+      <div
+        className="indicators-collapsed-bar"
+        onClick={onToggle}
+        role="button"
+        tabIndex={0}
+        title="Clique para expandir o resumo de indicadores"
+      >
+        <div className="indicators-collapsed-info">
+          <span className="indicators-collapsed-title">
+            <Icon d={Icons.reports} size={15} />
+            <strong>Resumo de indicadores</strong>
+          </span>
+          <span className="indicators-collapsed-summary">
+            <span><strong>{indicators.total}</strong> sessões</span>
+            <span className="dot-sep">•</span>
+            <span className="stat-eligible"><strong>{indicators.eligible}</strong> elegíveis</span>
+            <span className="dot-sep">•</span>
+            <span className="stat-glossed"><strong>{indicators.glossed}</strong> glosadas</span>
+            <span className="dot-sep">•</span>
+            <span className="stat-net"><strong>{formatBRL(indicators.net)}</strong> líquido</span>
+          </span>
+        </div>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm indicators-toggle-btn"
+          onClick={e => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          id="show-indicators-btn"
+          title="Mostrar resumo de indicadores"
+        >
+          <Icon d={Icons.eye} size={14} />
+          <span>Mostrar resumo</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="cards-row">
-      <div className="card">
-        <div className="card-icon card-icon--total">📋</div>
-        <div className="card-content">
-          <div className="label">Total de sessões</div>
-          <div className="value">{indicators.total}</div>
-          <div className="sub">no período consultado</div>
+    <div className="indicators-section">
+      <div className="indicators-section-header">
+        <div className="indicators-section-title">
+          <Icon d={Icons.reports} size={14} />
+          <span>Resumo do período consultado</span>
         </div>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm indicators-toggle-btn"
+          onClick={onToggle}
+          id="hide-indicators-btn"
+          title="Ocultar resumo de indicadores"
+        >
+          <Icon d={Icons.eyeOff} size={14} />
+          <span>Ocultar resumo</span>
+        </button>
       </div>
-      <div className="card">
-        <div className="card-icon card-icon--eligible">✅</div>
-        <div className="card-content">
-          <div className="label">Sessões elegíveis</div>
-          <div className="value">{indicators.eligible}</div>
-          <div className="sub">para pagamento</div>
+      <div className="cards-row">
+        <div className="card">
+          <div className="card-icon card-icon--total">📋</div>
+          <div className="card-content">
+            <div className="label">Total de sessões</div>
+            <div className="value">{indicators.total}</div>
+            <div className="sub">no período consultado</div>
+          </div>
         </div>
-      </div>
-      <div className="card">
-        <div className="card-icon card-icon--glossed">⚠️</div>
-        <div className="card-content">
-          <div className="label">Sessões glosadas</div>
-          <div className="value">{indicators.glossed}</div>
-          <div className="sub">não contabilizadas</div>
+        <div className="card">
+          <div className="card-icon card-icon--eligible">✅</div>
+          <div className="card-content">
+            <div className="label">Sessões elegíveis</div>
+            <div className="value">{indicators.eligible}</div>
+            <div className="sub">para pagamento</div>
+          </div>
         </div>
-      </div>
-      <div className="card">
-        <div className="card-icon card-icon--gross">💰</div>
-        <div className="card-content">
-          <div className="label">Valor bruto (previsto)</div>
-          <div className="value" style={{ fontSize: '1.05rem' }}>{formatBRL(indicators.gross)}</div>
-          <div className="sub">das sessões elegíveis</div>
+        <div className="card">
+          <div className="card-icon card-icon--glossed">⚠️</div>
+          <div className="card-content">
+            <div className="label">Sessões glosadas</div>
+            <div className="value">{indicators.glossed}</div>
+            <div className="sub">não contabilizadas</div>
+          </div>
         </div>
-      </div>
-      <div className="card">
-        <div className="card-icon card-icon--net">💎</div>
-        <div className="card-content">
-          <div className="label">Valor líquido (previsto)</div>
-          <div className="value" style={{ fontSize: '1.05rem', color: 'var(--green-700)' }}>{formatBRL(indicators.net)}</div>
-          <div className="sub">após impostos e % da clínica</div>
+        <div className="card">
+          <div className="card-icon card-icon--gross">💰</div>
+          <div className="card-content">
+            <div className="label">Valor bruto (previsto)</div>
+            <div className="value" style={{ fontSize: '1.05rem' }}>{formatBRL(indicators.gross)}</div>
+            <div className="sub">das sessões elegíveis</div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-icon card-icon--net">💎</div>
+          <div className="card-content">
+            <div className="label">Valor líquido (previsto)</div>
+            <div className="value" style={{ fontSize: '1.05rem', color: 'var(--green-700)' }}>{formatBRL(indicators.net)}</div>
+            <div className="sub">após impostos e % da clínica</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1553,7 +1791,17 @@ function ApuracaoPreviewPanel({
                                 <td>{s.guia}</td>
                                 <td style={{ fontWeight: 600 }}>{formatBRL(s.valuePerSession)}</td>
                                 <td style={{ textAlign: 'right' }}>
-                                  <span className="badge badge-green">Elegível</span>
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                    <span className="badge badge-green">Elegível</span>
+                                    {s.financialStatus === 'disponivel' && (
+                                      <ActionMenu
+                                        session={s}
+                                        trigger="pencil"
+                                        onGlosa={(id, apply) => setPendingGlosa({ id, apply })}
+                                        onEditSession={setEditingSession}
+                                      />
+                                    )}
+                                  </div>
                                 </td>
                               </tr>
                             ))
@@ -1615,12 +1863,14 @@ function ApuracaoPreviewPanel({
                                       <span className="badge badge-amber">Reservada</span>
                                     )}
                                     {s.glosa === 'glosada' && s.financialStatus === 'disponivel' && (
+
                                       <ActionMenu
                                         session={s}
                                         trigger="pencil"
                                         onGlosa={(id, apply) => setPendingGlosa({ id, apply })}
                                         onEditSession={setEditingSession}
                                       />
+
                                     )}
                                   </div>
                                 </td>
@@ -1833,11 +2083,7 @@ function ClosureDetailModal({
           alignItems: 'center',
         }}>
           <div>
-            <img
-              src="/logo.png"
-              alt="Harmonia Fisioterapia"
-              style={{ height: 40, width: 'auto', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
-            />
+            <img src="/logo.png" alt="Harmonia Fisioterapia" style={{ backgroundColor: 'white', maxHeight: 40, padding: 2 }} />
             <div style={{ fontSize: '.74rem', opacity: 0.9, marginTop: 2 }}>Relatório de Produção e Fechamento</div>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -2486,11 +2732,53 @@ const DEFAULT_FILTERS: FilterState = {
 
 export default function App() {
   const store = useStore();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('harmonia_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [showIndicators, setShowIndicators] = useState(() => {
+    try {
+      const saved = localStorage.getItem('harmonia_show_indicators');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+  const [visibleFilters, setVisibleFilters] = useState<Set<FilterKey>>(() => {
+    try {
+      const saved = localStorage.getItem('harmonia_visible_filters');
+      if (saved) {
+        const parsed = JSON.parse(saved) as FilterKey[];
+        if (Array.isArray(parsed) && parsed.length > 0) return new Set(parsed);
+      }
+    } catch { }
+    return new Set<FilterKey>(ALL_FILTER_KEYS);
+  });
   const [activeTab, setActiveTab] = useState<'sessoes' | 'fechamento'>('sessoes');
   const [closureSubTab, setClosureSubTab] = useState<'apuracao' | 'fechamentos'>('apuracao');
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [showReset, setShowReset] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('harmonia_sidebar_collapsed', String(sidebarCollapsed));
+    } catch { }
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('harmonia_show_indicators', JSON.stringify(showIndicators));
+    } catch { }
+  }, [showIndicators]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('harmonia_visible_filters', JSON.stringify(Array.from(visibleFilters)));
+    } catch { }
+  }, [visibleFilters]);
 
   const filteredSessions = store.getFilteredSessions(filters);
   const indicators = store.getIndicators(filteredSessions);
@@ -2503,16 +2791,19 @@ export default function App() {
         {/* Page header */}
         <div className="page-header">
           <div className="page-header-left">
-            <button
-              type="button"
-              className="sidebar-collapse-btn"
-              onClick={() => setSidebarCollapsed(c => !c)}
-              id="header-toggle-sidebar-btn"
-              title={sidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-              style={{ marginRight: 8, display: 'none' }}
-            >
-              <Icon d={sidebarCollapsed ? Icons.chevronR : Icons.chevronL} size={14} />
-            </button>
+            {sidebarCollapsed && (
+              <button
+                type="button"
+                className="sidebar-collapse-btn sidebar-collapse-btn--active"
+                onClick={() => setSidebarCollapsed(false)}
+                id="header-toggle-sidebar-btn"
+                title="Mostrar menu lateral"
+                aria-label="Mostrar menu lateral"
+                style={{ marginRight: 8 }}
+              >
+                <Icon d={Icons.menu} size={15} />
+              </button>
+            )}
             <div className="page-header-icon">
               <Icon d={Icons.reports} size={22} />
             </div>
@@ -2565,10 +2856,20 @@ export default function App() {
           {activeTab === 'sessoes' ? (
             <>
               {/* Filters */}
-              <FiltersBar filters={filters} onChange={setFilters} sessions={store.sessions} />
+              <FiltersBar
+                filters={filters}
+                onChange={setFilters}
+                sessions={store.sessions}
+                visibleFilters={visibleFilters}
+                onVisibleFiltersChange={setVisibleFilters}
+              />
 
               {/* Indicator cards */}
-              <IndicatorCards indicators={indicators} />
+              <IndicatorCards
+                indicators={indicators}
+                visible={showIndicators}
+                onToggle={() => setShowIndicators(v => !v)}
+              />
 
               {/* Sessions table */}
               <SessionsTable

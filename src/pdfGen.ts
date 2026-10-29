@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import type { Closure, Session } from './types';
 import { getFisioName, getFisioCrefito, formatBRL, formatDate, formatDateTime } from './utils';
+import { LOGO_BASE64 } from './logoData';
 
 function renderTableColumnsHeader(
   doc: jsPDF,
@@ -64,37 +65,52 @@ function buildFisioPages(
   const clinicPct = closure?.clinicPercent ?? customClinicPct ?? 50;
 
   // Header bar
-  doc.setFillColor(61, 64, 152); // Brand Harmonia #3D4098
+  doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, W, 26, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(15);
+
+  // Logo da clínica
+  try {
+    doc.addImage(LOGO_BASE64, 'PNG', 14, 4, 36, 17);
+  } catch (err) {
+    console.warn('Erro ao carregar logo no PDF:', err);
+  }
+
+  // Título e subtítulo do documento
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('Harmonia Fisioterapia', 14, 11);
-  doc.setFontSize(8.5);
+  doc.text('Relatório de Produção e Fechamento', 54, 13);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text('Relatório de Produção e Fechamento', 14, 19);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Harmonia Fisioterapia', 54, 18.5);
+
+  // Linha sutil delimitadora do cabeçalho
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(14, 25, W - 14, 25);
 
   if (isPreview) {
     doc.setFillColor(246, 135, 47); // Brand Orange #F6872F
-    doc.rect(W - 60, 4, 52, 11, 'F');
+    doc.roundedRect(W - 64, 6, 50, 9, 2, 2, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
-    doc.text('PRÉVIA — NÃO CONFIRMADO', W - 57, 11);
+    doc.text('PRÉVIA — NÃO CONFIRMADO', W - 39, 11.8, { align: 'center' });
   } else if (closure?.status === 'pendente') {
     doc.setFillColor(246, 135, 47); // Brand Orange #F6872F
-    doc.rect(W - 60, 4, 52, 11, 'F');
+    doc.roundedRect(W - 64, 6, 50, 9, 2, 2, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
-    doc.text('PAGAMENTO PENDENTE', W - 54, 11);
+    doc.text('PAGAMENTO PENDENTE', W - 39, 11.8, { align: 'center' });
   } else if (closure?.status === 'pago') {
     doc.setFillColor(16, 185, 129);
-    doc.rect(W - 60, 4, 52, 11, 'F');
+    doc.roundedRect(W - 64, 6, 50, 9, 2, 2, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7.5);
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
-    doc.text('PAGAMENTO CONFIRMADO', W - 56, 11);
+    doc.text('PAGAMENTO CONFIRMADO', W - 39, 11.8, { align: 'center' });
   }
 
   // Fisio info
@@ -135,8 +151,8 @@ function buildFisioPages(
   // 1. Eligible sessions (contabilizadas)
   const eligibleSessions: Session[] = closure
     ? closure.sessions
-        .map(cs => fisioSessions.find(s => s.id === cs.sessionId))
-        .filter((s): s is Session => !!s)
+      .map(cs => fisioSessions.find(s => s.id === cs.sessionId))
+      .filter((s): s is Session => !!s)
     : fisioSessions.filter(s => s.glosa === 'nao_glosada' && s.financialStatus === 'disponivel');
 
   // 2. Glosadas sessions (não contabilizadas)
@@ -154,8 +170,9 @@ function buildFisioPages(
     ? entry.grossValue
     : eligibleSessions.reduce((sum, s) => sum + s.valuePerSession, 0);
   const taxValue = entry ? entry.taxValue : gross * (taxPct / 100);
-  const clinicValue = entry ? entry.clinicValue : (gross - taxValue) * (clinicPct / 100);
-  const netValue = entry ? entry.netValue : gross - taxValue - clinicValue;
+  // const clinicValue = entry ? entry.clinicValue : (gross - taxValue) * (clinicPct / 100);
+  const clinicValuePerc = (gross - taxValue) * (clinicPct / 100);
+  const netValue = gross - taxValue - clinicValuePerc;
 
   // Summary box
   const boxY = metaY + 2;
@@ -176,7 +193,7 @@ function buildFisioPages(
     ['Sessões reservadas (não contabilizadas)', `${reservedSessions.length}`],
     ['Valor bruto apurado', formatBRL(gross)],
     [`Imposto (${taxPct}%)`, `- ${formatBRL(taxValue)}`],
-    [`Parcela da clínica (${clinicPct}% s/ saldo)`, `- ${formatBRL(clinicValue)}`],
+    [`Parcela da clínica (${clinicPct}% s/ saldo)`, `- ${formatBRL(clinicValuePerc)}`],
   ];
 
   let ry = boxY + 16;
@@ -198,7 +215,7 @@ function buildFisioPages(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(15, 23, 42);
-  doc.text('Valor líquido (profissional):', 20, ry + 8.5);
+  doc.text('Valor líquido do profissional:', 20, ry + 8.5);
   doc.text(formatBRL(netValue), W - 20, ry + 8.5, { align: 'right' });
 
   // Memória de cálculo
@@ -208,9 +225,8 @@ function buildFisioPages(
   doc.setFont('helvetica', 'normal');
   doc.text('Memória de cálculo:', 14, memY);
   doc.text(
-    `Bruto ${formatBRL(gross)} − Imposto ${taxPct}% (${formatBRL(taxValue)}) = ${formatBRL(gross - taxValue)} − Parcela clínica ${clinicPct}% (${formatBRL(clinicValue)}) = Líquido ${formatBRL(netValue)}`,
-    14,
-    memY + 4.5,
+    `Bruto ${formatBRL(gross)} - Imposto ${taxPct}% (${formatBRL(taxValue)}) = ${formatBRL(gross - taxValue)} - Parcela clínica ${clinicPct}% (${formatBRL(clinicValuePerc)}) = Líquido ${formatBRL(netValue)}`,
+    14, memY + 4.5,
   );
 
   let curY = memY + 13;
@@ -346,6 +362,36 @@ export function generatePDF(
     doc.text(`Página ${p} de ${totalPages}`, W - 14, footerY, { align: 'right' });
   }
 
-  const name = filename ?? (closure ? `fechamento-${closure.id}` : 'previa-apuracao');
-  doc.save(`${name}.pdf`);
+  // 1. Gera um nome dinâmico e amigável caso não seja passado um personalizado
+  let defaultName: string;
+  if (closure) {
+    if (fisioIds.length === 1) {
+      const fisioName = getFisioName(fisioIds[0]).replace(/\s+/g, '_');
+      defaultName = `Fechamento_${closure.id}_${fisioName}`;
+    } else {
+      defaultName = `Fechamento_${closure.id}_Geral`;
+    }
+  } else {
+    if (fisioIds.length === 1) {
+      const fisioName = getFisioName(fisioIds[0]).replace(/\s+/g, '_');
+      defaultName = `Previa_Producao_${fisioName}`;
+    } else {
+      defaultName = `Previa_Producao_Geral`;
+    }
+  }
+
+  const name = filename ?? defaultName;
+
+  // 2. Define o título nos metadados do PDF (é isso que o navegador exibe na aba e sugere ao salvar)
+  doc.setProperties({
+    title: `${name}.pdf`,
+    subject: 'Relatório de Produção e Fechamento',
+    author: 'Harmonia Fisioterapia',
+    creator: 'Harmonia Fisioterapia',
+  });
+
+  // 3. Abre em nova aba usando Blob URL (evita URLs data: base64 gigantes e mantém o título na aba)
+  const blob = doc.output('blob');
+  const blobUrl = URL.createObjectURL(blob);
+  window.open(blobUrl, '_blank');
 }
