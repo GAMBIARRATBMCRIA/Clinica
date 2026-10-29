@@ -4,20 +4,29 @@ import { INITIAL_SESSIONS, INITIAL_CLOSURES, FISIOTERAPEUTAS, TAX_PERCENT, CLINI
 import { isEligible, buildPreview, buildClosureFisioEntries, calcNet } from './utils';
 import type { PreviewResult } from './types';
 
-const STORAGE_KEY_SESSIONS = 'harmonia_sessions_v2';
-const STORAGE_KEY_CLOSURES = 'harmonia_closures_v2';
+const STORAGE_KEY_SESSIONS = 'harmonia_sessions_v4';
+const STORAGE_KEY_CLOSURES = 'harmonia_closures_v4';
 
 function loadSessions(): Session[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_SESSIONS);
-    if (raw) return JSON.parse(raw) as Session[];
+    const raw = localStorage.getItem(STORAGE_KEY_SESSIONS) || localStorage.getItem('harmonia_sessions_v3');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((s: any) => ({
+          ...s,
+          glosa: (s.glosa === 'glosada' || s.glosa === true) ? 'glosada' : 'nao_glosada',
+          financialStatus: s.financialStatus || (s.closureId ? 'reservada' : 'disponivel'),
+        }));
+      }
+    }
   } catch { /* ignore */ }
   return INITIAL_SESSIONS;
 }
 
 function loadClosures(): Closure[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_CLOSURES);
+    const raw = localStorage.getItem(STORAGE_KEY_CLOSURES) || localStorage.getItem('harmonia_closures_v3');
     if (raw) return JSON.parse(raw) as Closure[];
   } catch { /* ignore */ }
   return INITIAL_CLOSURES;
@@ -66,18 +75,34 @@ export function useStore() {
     updateSessions(updated);
   }, [sessions, updateSessions]);
 
+  const updateSession = useCallback((sessionId: string, changes: Partial<Session>) => {
+    const updated = sessions.map(s => {
+      if (s.id !== sessionId) return s;
+      return { ...s, ...changes };
+    });
+    updateSessions(updated);
+  }, [sessions, updateSessions]);
+
   // ── Preview ──────────────────────────────────────────────────────────────
 
-  const getPreview = useCallback((fisioIds: string[]): PreviewResult => {
+  const getPreview = useCallback((
+    fisioIds: string[],
+    taxPct: number = TAX_PERCENT,
+    clinicPct: number = CLINIC_PERCENT,
+  ): PreviewResult => {
     const lastPaid = [...closures]
       .filter(c => c.status === 'pago')
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-    return buildPreview(sessions, fisioIds, lastPaid);
+    return buildPreview(sessions, fisioIds, lastPaid, taxPct, clinicPct);
   }, [sessions, closures]);
 
   // ── Conclude closure ─────────────────────────────────────────────────────
 
-  const concludeClosure = useCallback((fisioIds: string[]): Closure | null => {
+  const concludeClosure = useCallback((
+    fisioIds: string[],
+    taxPct: number = TAX_PERCENT,
+    clinicPct: number = CLINIC_PERCENT,
+  ): Closure | null => {
     const lastPaid = [...closures]
       .filter(c => c.status === 'pago')
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
@@ -89,12 +114,15 @@ export function useStore() {
     if (eligibleSessions.length === 0) return null;
 
     const gross = eligibleSessions.reduce((sum, s) => sum + s.valuePerSession, 0);
-    const { taxValue, clinicValue, netValue } = calcNet(gross);
-    const perFisio = buildClosureFisioEntries(eligibleSessions, fisioIds);
+    const { taxValue, clinicValue, netValue } = calcNet(gross, taxPct, clinicPct);
+    const perFisio = buildClosureFisioEntries(eligibleSessions, fisioIds, taxPct, clinicPct);
     const now = new Date().toISOString();
+    const nextNum = closures.length + 1;
+    const closureYear = new Date().getFullYear();
+    const formattedId = `FCH-${closureYear}-${String(nextNum).padStart(3, '0')}`;
 
     const closure: Closure = {
-      id: `c_${Date.now()}`,
+      id: formattedId,
       createdAt: now,
       status: 'pendente',
       fisioIds,
@@ -102,8 +130,8 @@ export function useStore() {
       periodStart: lastPaid ? lastPaid.createdAt.slice(0, 10) : '2025-01-01',
       periodEnd: now.slice(0, 10),
       grossValue: gross,
-      taxPercent: TAX_PERCENT,
-      clinicPercent: CLINIC_PERCENT,
+      taxPercent: taxPct,
+      clinicPercent: clinicPct,
       taxValue,
       clinicValue,
       netValue,
@@ -189,8 +217,16 @@ export function useStore() {
       if (filters.dateFrom && s.date < filters.dateFrom) return false;
       if (filters.dateTo   && s.date > filters.dateTo)   return false;
       if (filters.fisioId  && s.fisioId !== filters.fisioId) return false;
-      if (filters.glosa !== 'all' && s.glosa !== filters.glosa) return false;
-      if (filters.financial !== 'all' && s.financialStatus !== filters.financial) return false;
+      if (filters.plano    && filters.plano !== 'all' && s.plano !== filters.plano) return false;
+      if (filters.glosa && filters.glosa !== 'all') {
+        const isGlosada = s.glosa === 'glosada' || (s as any).glosa === true;
+        if (filters.glosa === 'glosada' && !isGlosada) return false;
+        if (filters.glosa === 'nao_glosada' && isGlosada) return false;
+      }
+      if (filters.financial && filters.financial !== 'all') {
+        const currentFinancial = s.financialStatus || (s.closureId ? 'reservada' : 'disponivel');
+        if (currentFinancial !== filters.financial) return false;
+      }
       return true;
     });
   }, [sessions]);
@@ -219,6 +255,7 @@ export function useStore() {
     FISIOTERAPEUTAS,
     applyGlosa,
     removeGlosa,
+    updateSession,
     getPreview,
     concludeClosure,
     cancelClosure,

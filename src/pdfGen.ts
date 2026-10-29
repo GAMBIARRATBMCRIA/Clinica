@@ -51,14 +51,20 @@ function buildFisioPages(
   sessions: Session[],
   isPreview: boolean,
   isFirstFisio: boolean,
+  customTaxPct?: number,
+  customClinicPct?: number,
 ): void {
   if (!isFirstFisio) doc.addPage();
 
   const W = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
+  // Percentages to use
+  const taxPct = closure?.taxPercent ?? customTaxPct ?? 5;
+  const clinicPct = closure?.clinicPercent ?? customClinicPct ?? 50;
+
   // Header bar
-  doc.setFillColor(22, 101, 52); // green-800
+  doc.setFillColor(61, 64, 152); // Brand Harmonia #3D4098
   doc.rect(0, 0, W, 26, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(15);
@@ -69,16 +75,16 @@ function buildFisioPages(
   doc.text('Relatório de Produção e Fechamento', 14, 19);
 
   if (isPreview) {
-    doc.setFillColor(234, 179, 8); // yellow
+    doc.setFillColor(246, 135, 47); // Brand Orange #F6872F
     doc.rect(W - 60, 4, 52, 11, 'F');
-    doc.setTextColor(92, 64, 0);
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
     doc.text('PRÉVIA — NÃO CONFIRMADO', W - 57, 11);
   } else if (closure?.status === 'pendente') {
-    doc.setFillColor(245, 158, 11);
+    doc.setFillColor(246, 135, 47); // Brand Orange #F6872F
     doc.rect(W - 60, 4, 52, 11, 'F');
-    doc.setTextColor(92, 46, 0);
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
     doc.text('PAGAMENTO PENDENTE', W - 54, 11);
@@ -147,8 +153,8 @@ function buildFisioPages(
   const gross = entry
     ? entry.grossValue
     : eligibleSessions.reduce((sum, s) => sum + s.valuePerSession, 0);
-  const taxValue = entry ? entry.taxValue : gross * 0.05;
-  const clinicValue = entry ? entry.clinicValue : (gross - taxValue) * 0.2;
+  const taxValue = entry ? entry.taxValue : gross * (taxPct / 100);
+  const clinicValue = entry ? entry.clinicValue : (gross - taxValue) * (clinicPct / 100);
   const netValue = entry ? entry.netValue : gross - taxValue - clinicValue;
 
   // Summary box
@@ -169,8 +175,8 @@ function buildFisioPages(
     ['Sessões glosadas (não contabilizadas)', `${glossedSessions.length}`],
     ['Sessões reservadas (não contabilizadas)', `${reservedSessions.length}`],
     ['Valor bruto apurado', formatBRL(gross)],
-    ['Imposto (5%)', `- ${formatBRL(taxValue)}`],
-    ['Parcela da clínica (20% s/ saldo)', `- ${formatBRL(clinicValue)}`],
+    [`Imposto (${taxPct}%)`, `- ${formatBRL(taxValue)}`],
+    [`Parcela da clínica (${clinicPct}% s/ saldo)`, `- ${formatBRL(clinicValue)}`],
   ];
 
   let ry = boxY + 16;
@@ -202,7 +208,7 @@ function buildFisioPages(
   doc.setFont('helvetica', 'normal');
   doc.text('Memória de cálculo:', 14, memY);
   doc.text(
-    `Bruto ${formatBRL(gross)} − Imposto 5% (${formatBRL(taxValue)}) = ${formatBRL(gross - taxValue)} − Parcela clínica 20% (${formatBRL(clinicValue)}) = Líquido ${formatBRL(netValue)}`,
+    `Bruto ${formatBRL(gross)} − Imposto ${taxPct}% (${formatBRL(taxValue)}) = ${formatBRL(gross - taxValue)} − Parcela clínica ${clinicPct}% (${formatBRL(clinicValue)}) = Líquido ${formatBRL(netValue)}`,
     14,
     memY + 4.5,
   );
@@ -212,7 +218,7 @@ function buildFisioPages(
   const checkPageBreak = (neededHeight: number) => {
     if (curY + neededHeight > pageHeight - 16) {
       doc.addPage();
-      doc.setFillColor(22, 101, 52);
+      doc.setFillColor(61, 64, 152);
       doc.rect(0, 0, W, 10, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(8);
@@ -229,7 +235,7 @@ function buildFisioPages(
     doc,
     curY,
     `Sessões Elegíveis (Contabilizadas na Produção) — Total: ${eligibleSessions.length}`,
-    [22, 101, 52],
+    [61, 64, 152],
     undefined,
     [241, 245, 249],
   );
@@ -312,11 +318,13 @@ export function generatePDF(
   sessions: Session[],
   isPreview = false,
   filename?: string,
+  customTaxPct?: number,
+  customClinicPct?: number,
 ): void {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
   fisioIds.forEach((fid, idx) => {
-    buildFisioPages(doc, closure, fid, sessions, isPreview, idx === 0);
+    buildFisioPages(doc, closure, fid, sessions, isPreview, idx === 0, customTaxPct, customClinicPct);
   });
 
   // Footer em todas as páginas

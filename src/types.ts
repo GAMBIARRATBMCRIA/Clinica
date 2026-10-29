@@ -10,6 +10,7 @@ export type FinancialStatus =
 export interface Session {
   id: string;
   date: string;              // ISO yyyy-mm-dd
+  competenceDate?: string;   // Data de competência (ISO yyyy-mm-dd)
   patient: string;
   guia: string;              // guia + plano string
   plano: string;
@@ -97,6 +98,7 @@ export interface FilterState {
   dateFrom: string;
   dateTo: string;
   fisioId: string;      // '' = all
+  plano: string;        // '' = all
   glosa: 'all' | 'glosada' | 'nao_glosada';
   financial: 'all' | 'disponivel' | 'reservada' | 'paga';
 }

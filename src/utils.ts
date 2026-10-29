@@ -42,6 +42,8 @@ export function buildPreview(
   sessions: Session[],
   fisioIds: string[],
   lastPaidClosure: Closure | undefined,
+  taxPct: number = TAX_PERCENT,
+  clinicPct: number = CLINIC_PERCENT,
 ): PreviewResult {
   const periodStart = lastPaidClosure ? lastPaidClosure.createdAt.slice(0, 10) : '2025-01-01';
   const periodEnd   = new Date().toISOString().slice(0, 10);
@@ -51,14 +53,14 @@ export function buildPreview(
     const eligible = fisioSessions.filter(s => isEligible(s));
     const glossed  = fisioSessions.filter(s => s.glosa === 'glosada');
     const gross    = eligible.reduce((sum, s) => sum + s.valuePerSession, 0);
-    const { taxValue, clinicValue, netValue } = calcNet(gross);
+    const { taxValue, clinicValue, netValue } = calcNet(gross, taxPct, clinicPct);
     return {
       fisioId: fid,
       eligibleSessions: eligible.length,
       grossValue: gross,
-      taxPercent: TAX_PERCENT,
+      taxPercent: taxPct,
       taxValue,
-      clinicPercent: CLINIC_PERCENT,
+      clinicPercent: clinicPct,
       clinicValue,
       netValue,
       glossedSessions: glossed.length,
@@ -77,11 +79,16 @@ export function buildPreview(
 }
 
 /** Build per-fisio entries for a closure */
-export function buildClosureFisioEntries(sessions: Session[], fisioIds: string[]): ClosureFisioEntry[] {
+export function buildClosureFisioEntries(
+  sessions: Session[],
+  fisioIds: string[],
+  taxPct: number = TAX_PERCENT,
+  clinicPct: number = CLINIC_PERCENT,
+): ClosureFisioEntry[] {
   return fisioIds.map(fid => {
     const fisioSessions = sessions.filter(s => s.fisioId === fid && isEligible(s));
     const gross = fisioSessions.reduce((sum, s) => sum + s.valuePerSession, 0);
-    const { taxValue, clinicValue, netValue } = calcNet(gross);
+    const { taxValue, clinicValue, netValue } = calcNet(gross, taxPct, clinicPct);
     return {
       fisioId: fid,
       sessionCount: fisioSessions.length,
@@ -107,4 +114,19 @@ export function getFisioInitials(id: string): string {
 
 export function getFisioColor(id: string): string {
   return FISIOTERAPEUTAS.find(f => f.id === id)?.color ?? '#6b7280';
+}
+
+/** Formats closure IDs into standardized FCH-YYYY-XXX format */
+export function formatClosureCode(closureId?: string): string {
+  if (!closureId) return '';
+  if (closureId.startsWith('FCH-')) return closureId;
+  if (closureId === 'c_hist') return 'FCH-2026-001';
+  if (closureId === 'c01') return 'FCH-2026-003';
+  if (closureId === 'c02') return 'FCH-2026-002';
+  if (closureId.startsWith('c_')) {
+    const raw = closureId.replace('c_', '');
+    const num = raw.length > 3 ? raw.slice(-3) : raw.padStart(3, '0');
+    return `FCH-${new Date().getFullYear()}-${num}`;
+  }
+  return `FCH-${new Date().getFullYear()}-${closureId.padStart(3, '0')}`;
 }
