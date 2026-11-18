@@ -1,0 +1,44 @@
+Os atores do sistema são funcionários fisioterapeutas, atendentes e gerente (que precisa do relatório).
+O gerente tem o poder máximo dentro do sistema. Pode acessar e alterar dados pessoais, fichas de tratamentos, informações, matriz de permissões para funcionários, registrar e remover glosas, imprimir relatórios, registrar sessões (não remendado, mas permitido inicialmente) e etc. Dados registrados para fins de auditoria do gerente não podem ser alterados como quem inseriu sessões, quem confirmou a assinatura do paciente ou data e hora do registro de uma sessão, por exemplo.
+Cada paciente tem um código que o identifica na plataforma do plano. Esse código se chama guia;  
+Cada paciente pode já chegar com um ou mais código de autorização do tratamento e o número de sessões aprovadas por esse código;
+O código de autorização já prever a quantidade de sessões aprovadas;
+Cada paciente pode ter um, nenhum ou mais de um tratamento em andamento;
+
+O código do plano já prevê o valor que a clínica vai receber por sessão, ou seja, pelo código já é possível dizer o preço em cada sessão. “Para essa parte, pensamos em fazer algo como um gerenciamento de planos em que temos o crud de planos. Dessa forma controlamos o código e o valor do plano por sessão. Dessa forma, ao cadastrar a ficha de tratamento do paciente, basta um dropbox selecionando o plano ou inserir o código manualmente”; 
+
+O código do plano já pode prever o valor  por sessão, mas deve ser possível alterar o preço na caixa de texto;
+Além de planos de saúde, o paciente pode fazer pela modalidade particular pela clínica sem plano de saúde. “Para essa parte, pensamos em deixar no sistema como uma espécie de plano de saúde também com nomenclatura como Interno ou Privado. O sistema reconheceria como um plano de saúde.” 
+Ao cadastrar os planos, disponibiliza a opção de “Liberar sessões somente com código de autorização” marcado como padrão, mas podendo ser desmarcado. Caso marcado, o número de sessões a serem disponibilizadas só poderão ser cadastradas com código de autorização correspondente à quantidade de sessões. Caso desmarcado, um campo deve aparecer com um código gerado pelo sistema, esse será o código para autorizar novas seções;
+Para cadastrar nova quantidade de sessões na ficha de tratamento, deve-se obrigatoriamente selecionar o plano, liberar o campo para inserir o código de autorização e, depois de inserir, liberar o campo para inserir a quantidade autorizada. No plano que tem a opção de “Liberar sessões somente com código de autorização” desmarcado, o código gerado deve ser inserido automaticamente no campo correspondente e então permite inserir a quantidade de sessões;
+Ao adicionar nova quantidade de sessões na ficha, deve-se registrar data e hora do registro além da informação de quem registrou;
+Cada sessão deve estar vinculada ao código de autorização;
+O fisioterapeuta pode avaliar também se há a necessidade de mais sessões conforme avança no tratamento. Caso aprovado pelo plano, a “ficha” do paciente pode ser alterada para comportar isso com a adição de código de autorização para liberar mais sessões. Observação: a adição de um novo código não sobrepõe o/os código já inserido de modo a substituir, mas somar. Dessa forma, o paciente pode obter novas autorizações para liberação de mais sessões;
+Tratamentos diferentes têm fichas diferentes para o mesmo cadastro (paciente). Ou seja, o paciente tem seu cadastro com dados pessoais, esse paciente tem uma, nenhuma ou mais de uma ficha de tratamento e essa ficha pode ter um ou mais de um código de autorização;
+O cadastro do paciente quem faz é o atendente, quem faz o cadastro da ficha de tratamento é o fisioterapeuta e pode ser feito pelo atendente;
+Entende-se como “evolução do paciente” a sessão da ficha de tratamento em que se registra as sessões que já aconteceram. Essa evolução não precisa ser tratada como telas diferentes, pode ser parte diferente da mesma ficha;
+Cada fisioterapeuta faz a inserção da sessão ocorrida do paciente. Ele acessa a "ficha" do paciente e registra, na "evolução do paciente", a sessão realizada. Nesse registro, tem-se a inserção manual da data de realização, horário de início, horário de término e descrição do que foi feito. Já de forma automática, registrar quem inseriu essa sessão e data com horário do registro para fins de auditoria pelo gerente;
+O paciente pode ser atendido por um fisio que não foi o que registrou o tratamento, ou seja, qualquer fisio pode registrar a sessão na evolução do paciente;
+Um paciente pode ser atendido (realizar sessões) por diferentes profissionais, ou seja, um paciente não se limita a apenas um profissional. Ele pode realizar a sessão com qualquer fisioterapeuta;
+Essa nova sessão adicionada pelo fisio na evolução ficará como “pendente de assinatura". Dessa forma, o paciente precisará passar na recepção para assinar o que for necessário e o atendente finaliza “confirmando” a assinatura do paciente. A pessoa que confirmar (gerente ou atendente)  tbm deve ser registrado.  [Essa fase não impede o registro efetivo da sessão pelo fisio, mas deixa claro a necessidade do processo de assinatura pois ficará pendente de assinatura até que o atendente abra a ficha e confirme que o paciente assinou.] 
+
+
+Na ficha do cliente (foto da ficha coletada), tem:
+Lado da recepção: Dados pessoais, plano e guia;
+Lado do fisio: 
+01 Mesmos da recepção adicionado de alguns campos como Campo Texto Campo Texto  diagnóstico, Campo Texto motivo, Campo Texto HDO, Campo Texto exame físico, Campo Texto Exames complementares, Campo Texto medicação, chekbox Diabetes, chekbox Hipertenção, chekbox osteoporose, chekbox histórico de câncer na família, campo texto observação;
+02 Na outra parte da ficha, tem o tratamento e o controle de evolução (sesões). Na parte do tratamento tem Campo Texto número da autorização, data do número de autorização, data do início do tratamento, quantidade de sessões, data de validade deste tratamento. Nesse tratamento é onde ele Registra evolução;
+Na tela de gerente com objetivo de gerar relatório:
+Ao gerar o relatório precisa fazer o cálculo de quanto cada fisio vai receber;
+O relatório PDF pode ser individual de cada fisio e tbm pode ser geral (com todos os fisio, um em cada página);
+Eles, os fisioerapeutas, recebem por quantidade de sessões realizadas;
+Tem um imposto cobrado e uma porcentagem da clínica sobre o valor total. Primeiro tirar o imposto (esse valor varia) e depois calcula a porcentagem da clínica (tbm pode variar);
+Existe o que chamam de "glosas", sessões em que o plano diz ter havido algum problema para registrar e então eles não recebem por essa sessão até que seja regularizado. Dessa forma, a tela deve permitir o gerente marcar na sessão como "glosa" e essa não entra no cálculo daquele mês;
+ao gerar o relatório mensal, e confirmado o pagamento para o profissional, as sessões contabilizadas devem ser desconsideradas das próximas contagens, ou seja, as sessões “pagas” não contabilizam nos próximos relatórios. (aqui pensamos em gerar o relatório e ter a opção de marcar como "registrar como concluído" ou algo do tipo;
+A tabela deve permitir filtros de datas, glosas, fisioterapeutas, sessões e entre outros que facilitem o gerenciamento. Os principais são de datas (períodos), profissional e glosa (com ou sem);
+No MVP atual, tem filtros na parte de auditoria, mas o fechamento não considera esses filtros. Após reunião com cliente, na parte de fechamentos, deve conter a mesma opção de filtros para ir para esse fechamento. Dessa forma, o fechamento não deve mais considerar a data do último fechamento como a data inicial do próximo, será agora de acordo com os filtros aplicados;
+Nessa tabela também precisa possibilitar marcar como "glosa" diretamente na sessão;
+Na sessão marcada como glosa, ela será contabilizada no mês em que ela foi “desmarcada”. Enquanto ela estiver marcada como glosa, essas aparecem, mas não contabilizam no cálculo. Quando ela for desmarcada como glosa, essa será contabilizada no período em que foi desbloqueada. Isso justifica pois a clínica do recebe da provedora do plano quando essa sessão for “regularizada”, dessa forma, o fisio tbm recebe no mês em que ela foi regularizada;
+
+
+

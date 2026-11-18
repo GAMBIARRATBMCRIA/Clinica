@@ -837,7 +837,7 @@ function IndicatorCards({
 
 // ─── Sessions Table ───────────────────────────────────────────────────────────
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 type SortKey = 'date' | 'patient' | 'fisio' | 'value';
 type SortDir = 'asc' | 'desc';
@@ -849,6 +849,7 @@ function SessionsTable({ sessions, allSessions, onGlosa, onUpdateSession }: {
   onUpdateSession?: (id: string, updates: Partial<Session>) => void;
 }) {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -877,8 +878,8 @@ function SessionsTable({ sessions, allSessions, onGlosa, onUpdateSession }: {
     });
   }, [filtered, sortKey, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const paged = sorted.slice((page - 1) * pageSize, page * pageSize);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -909,7 +910,7 @@ function SessionsTable({ sessions, allSessions, onGlosa, onUpdateSession }: {
           <div>
             <div className="section-title">Sessões</div>
             <div className="section-subtitle">
-              Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, sorted.length)} de {sorted.length} registros
+              Mostrando {sorted.length === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, sorted.length)} de {sorted.length} registros
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -1018,7 +1019,30 @@ function SessionsTable({ sessions, allSessions, onGlosa, onUpdateSession }: {
         </div>
 
         <div className="pagination">
-          <span>{sorted.length} registro{sorted.length !== 1 ? 's' : ''}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <span>{sorted.length} registro{sorted.length !== 1 ? 's' : ''}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <label htmlFor="sessions-page-size" style={{ fontSize: '.75rem', color: 'var(--slate-500)' }}>
+                Linhas por página:
+              </label>
+              <select
+                id="sessions-page-size"
+                className="filter-select"
+                value={pageSize}
+                onChange={e => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                style={{ height: 28, fontSize: '.75rem', cursor: 'pointer' }}
+              >
+                {PAGE_SIZE_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
           <div className="pagination-pages">
             <button
               className="page-btn"
